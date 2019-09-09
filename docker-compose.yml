@@ -1,0 +1,271 @@
+version: '2.4'
+
+services:
+    # basenode:
+    #     build: ./base
+    #     stdin_open: true
+    #     tty: true
+    masternode:
+        build: ../docker-multichain/master
+        stdin_open: true
+        expose:
+            - 7557
+            - 2750
+            - 8002
+        ports:
+            - "8001:8002"
+        environment:
+            CHAINNAME: MyChain
+            NETWORK_PORT: 7557
+            RPC_PORT: 8002
+            RPC_USER: multichainrpc
+            RPC_PASSWORD: this-is-insecure-change-it
+            RPC_ALLOW_IP: 0.0.0.0/0
+            # Basic Chain Parameters
+            PARAM_CHAIN_PROTOCOL: chain-protocol|multichain
+            PARAM_CHAIN_DESCRIPTION: chain-description|SDECv0.1
+            PARAM_CHAIN_IS_TESTNET: chain-is-testnet|true
+            PARAM_TARGET_BLOCK_TIME: target-block-time|30
+            PARAM_MAX_BLOCK_SIZE: maximum-block-size|2097152
+            PARAM_MAX_CHUNK_SIZE: maximum-chunk-size|10486
+            PARAM_MAX_CHUNK_COUNT: maximum-chunk-count|1024
+            PARAM_ROOT_STREAM_NAME: root-stream-name|events
+            # Global Permissions
+            PARAM_ANYONE_CAN_CONNECT: anyone-can-connect|true
+            PARAM_ANYONE_CAN_RECEIVE: anyone-can-receive|true
+            PARAM_ANYONE_CAN_SEND: anyone-can-send|true
+            PARAM_ANYONE_CAN_RECEIVE_EMPTY: anyone-can-receive-empty|true
+            PARAM_ANYONE_CAN_CREATE: anyone-can-create|false
+            PARAM_ANYONE_CAN_ISSUE: anyone-can-issue|true
+            PARAM_ANYONE_CAN_MINE: anyone-can-mine|false
+            PARAM_ANYONE_CAN_ACTIVATE: anyone-can-activate|false
+            PARAM_ANYONE_CAN_ADMIN: anyone-can-admin:false
+            PARAM_SUPPORT_MINER_PRECHECK: support-miner-precheck|true
+            PARAM_ALLOW_ARBITRARY_OUTPUTS: allow-arbitrary-outputs|false
+            PARAM_ALLOW_P2SH_OUTPUTS: allow-p2sh-outputs|true
+            PARAM_ALLOW_MULTISIG_OUTPUTS: allow-multisig-outputs|true
+            # Consensus Requirements
+            PARAM_SETUP_FIRST_BLOCKS: setup-first-blocks|5
+            PARAM_ADMIN_CONSENSUS_UPGRADE: admin-consensus-upgrade|1
+            PARAM_ADMIN_CONSENSUS_TXFILTER: admin-consensus-txfilter|1
+            PARAM_ADMIN_CONSENSUS_ADMIN: admin-consensus-admin|1
+            PARAM_ADMIN_CONSENSUS_ACTIVATE: admin-consensus-activate|1
+            PARAM_ADMIN_CONSENSUS_MINE: admin-consensus-mine|1
+            PARAM_ADMIN_CONSENSUS_CREATE: admin-consensus-create|1
+            PARAM_ADMIN_CONSENSUS_ISSUE: admin-consensus-issue|1
+            # Defaults for Consensus Related Runtime Parameters
+            PARAM_LOCK_ADMIN_MINE_ROUNDS: lock-admin-mine-rounds|10
+            PARAM_MINING_REQUIRES_PEERS: mining-requires-peers|true
+            PARAM_MINE_EMPTY_ROUNDS: mine-empty-rounds|-1
+            PARAM_MINING_TURNOVER: mining-turnover|1
+            # Native Blockchain Currency:
+            PARAM_INITIAL_BLOCK_REWARD: initial-block-reward|0 # Remove later
+            PARAM_FIRST_BLOCK_REWARD: first-block-reward|-1  # Remove later
+            PARAM_REWARD_HALVING_INTERVAL: reward-halving-interval|52560
+            PARAM_REWARD_SPENDABLE_DELAY: reward-spendable-delay|5 
+            PARAM_MINIMUM_PER_OUTPUT: minimum-per-output|0
+            PARAM_MAX_PERPOUTPUT: maximum-per-output|100000000000000
+            PARAM_MINIMUM_OFFCHAIN_FEE: minimum-offchain-fee|0
+            PARAM_MINIMUM_RELAY_FEE: minimum-relay-fee|0 #
+            PARAM_NATIVE_CURRENCY_MULTIPLE: native-currency-multiple|1000
+            # Advanced Mining Parametrs
+            PARAM_SKIP_POW_CHECK: skip-pow-check|false
+            PARAM_POW_MIN_BITS: pow-minimum-bits|10
+            PARAM_TARGET_ADJUST_FREQ: target-adjust-freq|300 # 5min
+            PARAM_ALLOW_MIN_DIFFICULTY_BLOCKS: allow-min-difficulty-blocks|false
+            # Transaction Limits
+            PARAM_ONLY_ACCEPT_STD_TXS: only-accept-std-txs|true
+            PARAM_MAX_STD_TX_SIZE: max-std-tx-size|4194304 # Largest Transaction Ever in Bitcoin
+            PARAM_MAX_STD_OP_RETURNS_COUNT: max-std-op-returns-count|32
+            PARAM_MAX_STD_OP_RETURNS_SIZE: max-std-op-return-size|2097152
+            PARAM_MAX_STD_OP_DROPS_COUNT: max-std-op-drops-count|5
+            PARAM_MAX_STD_ELEMENT_SIZE: max-std-element-size|40000
+    slavenode:
+        build: ../docker-multichain/node
+        stdin_open: true
+        expose:
+            - 7557
+            - 8002
+        ports:
+            - "8002:8002" 
+        environment:
+            CHAINNAME: MyChain
+            NETWORK_PORT: 7557
+            RPC_PORT: 8002
+            RPC_USER: multichainrpc
+            RPC_PASSWORD: this-is-insecure-change-it
+            RPC_ALLOW_IP: 0.0.0.0/0.0.0.0
+            MASTER_NODE: masternode
+        links:
+            - masternode
+        depends_on:
+            - masternode
+    explorernode:
+        build: ../docker-multichain/explorer
+        stdin_open: true
+        expose:
+            - 7557
+            - 8002
+        environment:
+            CHAINNAME: MyChain
+            NETWORK_PORT: 7557
+            RPC_PORT: 8002
+            RPC_USER: multichainrpc
+            RPC_PASSWORD: this-is-insecure-change-it
+            RPC_ALLOW_IP: 0.0.0.0/0.0.0.0
+            MASTER_NODE: masternode
+            REDIS_PORT: 6379
+            REDIS_HOST: redis-db
+            REDIS_DB: 0
+        links:
+            - masternode
+            - mysqldb
+            - redis-db
+        depends_on:
+            - masternode
+            - mysqldb
+            - redis-db
+        healthcheck:
+            start_period: 30s
+            test: "sleep 1"
+            interval: 2s
+            timeout: 5s
+            retries: 15
+    mysqldb:
+        image: mysql:5.7
+        restart: always
+        ports:
+            # <Port exposed> : < MySQL Port running inside container>
+            - '4306:3306'
+        expose:
+            # Opens port 3306 on the container
+            - '3306'
+        environment:
+            MYSQL_DATABASE: 'abe'
+            # So you don't have to use root, but you can if you like
+            MYSQL_USER: 'abe'
+            # You can use whatever password you like
+            MYSQL_PASSWORD: 'PASSWORD'
+            # Password for root access
+            MYSQL_ROOT_PASSWORD: 'PASSWORD'
+        healthcheck:
+            test: "/usr/bin/mysql --user='abe' --password='PASSWORD' --execute \"SHOW DATABASES;\""
+            # start_period: 10s
+            interval: 2s
+            timeout: 5s
+            retries: 15
+    redis-db:
+        image: redis:5.0-alpine
+        restart: always
+        ports:
+            - '6379:6379'
+        expose:
+            - '6379'
+    api:
+        build: ../invoice-explorer/api
+        stdin_open: true
+        ports:
+            # <Port exposed> : < Port running inside container>
+            - '2000:8000'
+        expose:
+            - '8000'
+        links:
+            - masternode
+            - mysqldb
+            - redis-db
+        depends_on:
+            explorernode:
+                condition: service_healthy
+        environment:
+            REDIS_PORT: 6379
+            REDIS_HOST: redis-db
+            DB_HOST: mysqldb
+            DB_PORT: 3306
+        working_dir: /root/api
+        healthcheck:
+            test: "curl -f http://localhost:8000/v1/invoices || false"
+            # start_period: 10s
+            interval: 2s
+            timeout: 3s
+            retries: 5
+    simulator:
+        build: ../invoice-explorer/simulator
+        stdin_open: true
+        links:
+            - masternode
+            - mysqldb
+            - redis-db
+        depends_on:
+            api: 
+                condition: service_healthy
+        environment:
+            MASTER_PORT: 8002
+            MASTER_HOST: masternode
+        working_dir: /root/simulator
+    emissor_mysql:
+        image: mysql:5.7
+        restart: always
+        ports:
+            # <Port exposed> : < MySQL Port running inside container>
+            - '4307:3306'
+        expose:
+            # Opens port 3307 on the container
+            - '3306'
+        environment:
+            MYSQL_DATABASE: 'abe'
+            # So you don't have to use root, but you can if you like
+            MYSQL_USER: 'abe'
+            # You can use whatever password you like
+            MYSQL_PASSWORD: 'PASSWORD'
+            # Password for root access
+            MYSQL_ROOT_PASSWORD: 'PASSWORD'
+        healthcheck:
+            test: "/usr/bin/mysql --user='abe' --password='PASSWORD' --execute \"SHOW DATABASES;\""
+            # start_period: 10s
+            interval: 2s
+            timeout: 5s
+            retries: 15
+   
+   
+   
+   
+   
+    # emissor_api:
+    #     build: ../dashboard-emissor/api
+    #     stdin_open: true
+    #     volumes:
+    #         - "/var/run/docker.sock:/var/run/docker.sock"
+    #     ports:
+    #         # <Port exposed> : < Port running inside container>
+    #         - '9000:9000'
+    #     expose:
+    #         - '9000'
+    #     links:
+    #         - masternode
+    #         - emissor_mysql
+    #         - api
+    #     depends_on:
+    #         masternode:
+    #             condition: service_started
+    #         emissor_mysql:
+    #             condition: service_healthy
+    #         api:
+    #             condition: service_healthy
+    #     environment:
+    #         DB_HOST: mysqldb
+    #         DB_PORT: 3307
+    #         SERVER_PORT: 9000
+    #     working_dir: /root/api
+        # healthcheck:
+        #     test: "curl -f http://localhost:8000/v1/invoices || false"
+        #     # start_period: 10s
+        #     interval: 2s
+        #     timeout: 3s
+        #     retries: 5
+        
+        
+        # Where our data will be persisted
+        # volumes:
+        # - my-db:/var/lib/mysql
+# volumes:
+  # my-db:
