@@ -162,7 +162,7 @@ services:
         expose:
             - '6379'
     api:
-        build: ../invoice-explorer/api
+        build: ../invoice-explorer/
         stdin_open: true
         ports:
             # <Port exposed> : < Port running inside container>
@@ -181,6 +181,8 @@ services:
             REDIS_HOST: redis-db
             DB_HOST: mysqldb
             DB_PORT: 3306
+            MASTER_PORT: 8002
+            MASTER_HOST: masternode
         working_dir: /root/api
         healthcheck:
             test: "curl -f http://localhost:8000/v1/invoices || false"
